@@ -116,4 +116,6 @@ dependencies {
     } else {
         implementation jscFlavor
     }
+
+    implementation 'dev.rikka.shizuku:api:12.1.0' // Shizuku API 라이브러리 추가
 }
