@@ -10,12 +10,8 @@ import java.io.InputStreamReader
 
 class QAAutoModule(reactContext: ReactApplicationContext) : ReactContextBaseJavaModule(reactContext) {
 
-    // 모듈명 반환
-    override fun getName(): String {
-        return "QAAutoModule"
-    }
+    override fun getName(): String = "QAAutoModule"
 
-    // Shizuku 권한 검증 및 요청
     @ReactMethod
     fun checkPermission(promise: Promise) {
         try {
@@ -26,27 +22,26 @@ class QAAutoModule(reactContext: ReactApplicationContext) : ReactContextBaseJava
                 promise.resolve(false)
             }
         } catch (e: Exception) {
-            promise.reject("SHIZUKU_ERROR", "권한 요청 실패: " + e.message)
+            promise.reject("SHIZUKU_ERROR", e.message)
         }
     }
 
-    // dumpsys meminfo 명령어 실행 및 결과 반환
+    // 공통 쉘 명령어 실행 함수 (메모리, CPU, 배터리 등 통합 처리)
     @ReactMethod
-    fun runDumpsys(packageName: String, promise: Promise) {
+    fun runShellCommand(command: String, promise: Promise) {
         try {
-            // 권한 미확보 시 예외 처리
             if (Shizuku.checkSelfPermission() != android.content.pm.PackageManager.PERMISSION_GRANTED) {
-                promise.reject("PERMISSION_DENIED", "Shizuku 권한 없음")
+                promise.reject("PERMISSION_DENIED", "권한 없음")
                 return
             }
 
-            // 쉘 프로세스 생성 및 명령어 실행
-            val process = Shizuku.newProcess(arrayOf("dumpsys", "meminfo", packageName), null, null)
+            // 명령어 인자 분리 (예: "dumpsys meminfo" -> ["dumpsys", "meminfo"])
+            val cmdArgs = command.split(" ").toTypedArray()
+            val process = Shizuku.newProcess(cmdArgs, null, null)
             val reader = BufferedReader(InputStreamReader(process.inputStream))
             val output = StringBuilder()
             var line: String?
 
-            // 결과 문자열 파싱
             while (reader.readLine().also { line = it } != null) {
                 output.append(line).append("\n")
             }
@@ -55,6 +50,20 @@ class QAAutoModule(reactContext: ReactApplicationContext) : ReactContextBaseJava
             promise.resolve(output.toString())
         } catch (e: Exception) {
             promise.reject("EXECUTION_ERROR", e.message)
+        }
+    }
+
+    // 클립보드 복사 기능
+    @ReactMethod
+    fun copyToClipboard(text: String, promise: Promise) {
+        try {
+            // 안드로이드 시스템의 클립보드 관리자를 불러옵니다.
+            val clipboard = reactApplicationContext.getSystemService(android.content.Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
+            val clip = android.content.ClipData.newPlainText("QA_Data", text)
+            clipboard.setPrimaryClip(clip)
+            promise.resolve(true)
+        } catch (e: Exception) {
+            promise.reject("CLIPBOARD_ERROR", "복사 실패: " + e.message)
         }
     }
 }
